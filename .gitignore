@@ -1,0 +1,30 @@
+# --- Secrets & environment ---
+.env
+.env.local
+*.local
+
+# --- Python ---
+backend/.venv/
+__pycache__/
+*.pyc
+backend/data/
+*.sqlite
+*.sqlite3
+*.db
+
+# --- Node / Next.js ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+npm-debug.log*
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Uploads / temp ---
+tmp/
+uploads/

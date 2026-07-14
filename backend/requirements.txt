@@ -1,0 +1,23 @@
+# Web framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# HTTP client (Microsoft Graph + Ollama)
+httpx
+
+# Microsoft Entra authentication (app-only / client credentials)
+msal
+
+# Config
+python-dotenv
+
+# Vector math
+numpy
+
+# Document extraction
+pypdf
+python-docx
+openpyxl
+python-pptx
+beautifulsoup4
