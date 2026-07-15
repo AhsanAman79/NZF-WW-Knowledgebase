@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    # Loads AZURE_* / SHAREPOINT_* / EMBEDDING_MODEL etc. from the .env file
+    # you create on the server (copy from .env.example).
+    env_file: .env
+    environment:
+      # Talk to the Ollama container over the internal network:
+      OLLAMA_BASE_URL: http://ollama:11434
+      DATA_DIR: /app/backend/data
+    volumes:
+      - app_data:/app/backend/data
+    ports:
+      # NOTE: this exposes the app on the server. Protect the port with the
+      # Hetzner Cloud Firewall (allow only your IPs) until real login exists.
+      - "8000:8000"
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    # Not exposed publicly; only the app container reaches it internally.
+
+volumes:
+  app_data:
+  ollama_data:
