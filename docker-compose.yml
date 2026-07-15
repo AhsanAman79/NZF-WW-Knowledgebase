@@ -1,18 +1,4 @@
 services:
-  caddy:
-    image: caddy:2.8
-    restart: unless-stopped
-    env_file: .env
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - app
-
   app:
     build: .
     restart: unless-stopped
@@ -22,12 +8,13 @@ services:
       DATA_DIR: /app/backend/data
     volumes:
       - app_data:/app/backend/data
-    expose:
-      - "8000"
+    # Only bound to localhost on the host (for debugging). Public access goes
+    # through the shared Caddy (HTTPS + login) via the "edge" network.
     ports:
-      # Direct (HTTP) access kept temporarily; protect via Hetzner firewall.
-      # Once HTTPS is confirmed, this can be removed.
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+    networks:
+      - default
+      - edge
     depends_on:
       - ollama
 
@@ -36,9 +23,15 @@ services:
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
+    networks:
+      - default
+
+networks:
+  default:
+  edge:
+    external: true
+    name: eschborner-sportclub_default
 
 volumes:
   app_data:
   ollama_data:
-  caddy_data:
-  caddy_config:
