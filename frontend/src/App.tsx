@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { getAreas, getEntities } from "./api";
+import { getAreas, getDocTypes, getEntities } from "./api";
 import UploadView from "./views/UploadView";
 import SearchView from "./views/SearchView";
+import logo from "./assets/zd-logo-red.png";
 
 type View = "search" | "upload";
 
@@ -9,13 +10,15 @@ export default function App() {
   const [view, setView] = useState<View>("search");
   const [entities, setEntities] = useState<string[]>([]);
   const [areas, setAreas] = useState<string[]>([]);
+  const [docTypes, setDocTypes] = useState<string[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getEntities(), getAreas()])
-      .then(([e, a]) => {
+    Promise.all([getEntities(), getAreas(), getDocTypes()])
+      .then(([e, a, d]) => {
         setEntities(e);
         setAreas(a);
+        setDocTypes(d);
       })
       .catch((err) => setLoadError(err.message));
   }, []);
@@ -24,8 +27,8 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="brand">
-          <span className="logo">NZF</span>
-          <div>
+          <img src={logo} alt="Zakat Deutschland" className="logo" />
+          <div className="brand-text">
             <h1>Worldwide Knowledgebase</h1>
             <p className="subtitle">Central document search across all NZF entities</p>
           </div>
@@ -49,18 +52,19 @@ export default function App() {
       <main className="main">
         {loadError && (
           <div className="banner error">
-            Could not reach the backend: {loadError}. Is the API running on port 8000?
+            Could not reach the backend: {loadError}
           </div>
         )}
         {view === "search" ? (
-          <SearchView entities={entities} areas={areas} />
+          <SearchView entities={entities} areas={areas} docTypes={docTypes} />
         ) : (
-          <UploadView entities={entities} areas={areas} />
+          <UploadView entities={entities} areas={areas} docTypes={docTypes} />
         )}
       </main>
 
       <footer className="footer">
-        NZF Worldwide · Internal knowledgebase · Handle documents according to data-protection policy.
+        NZF Worldwide · Internal knowledgebase · Handle documents according to the
+        data-protection policy.
       </footer>
     </div>
   );

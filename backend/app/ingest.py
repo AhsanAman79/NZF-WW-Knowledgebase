@@ -1,25 +1,52 @@
-"""Ingestion pipeline: extract -> chunk -> embed -> store."""
+"""Ingestion pipeline: name -> extract -> chunk -> embed -> store."""
 from __future__ import annotations
+
+import hashlib
+import re
+import unicodedata
+from datetime import datetime, timezone
+from pathlib import Path
 
 from . import embeddings, vectorstore
 from .config import settings
 from .extraction import extract_text
 
+_UMLAUTS = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss", "Ä": "ae", "Ö": "oe", "Ü": "ue"}
+
+
+def content_hash(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def slugify(text: str) -> str:
+    """Lowercase, umlauts transliterated, hyphen-separated, ascii-only."""
+    for k, v in _UMLAUTS.items():
+        text = text.replace(k, v)
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9]+", "-", text).strip("-")
+    return text or "dokument"
+
+
+def build_stored_filename(prefix: str, title: str | None, original_filename: str) -> str:
+    """{PREFIX}_{slug}-{YYYY-MM-DD}.{ext}"""
+    ext = Path(original_filename).suffix.lower()
+    base = title if title else Path(original_filename).stem
+    slug = slugify(base)[:60]
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return f"{prefix}_{slug}-{date}{ext}"
+
 
 def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
-    """Split text into overlapping character windows on paragraph boundaries."""
     text = text.strip()
     if not text:
         return []
     if len(text) <= chunk_size:
         return [text]
-
     chunks: list[str] = []
-    start = 0
-    length = len(text)
+    start, length = 0, len(text)
     while start < length:
         end = min(start + chunk_size, length)
-        # Try to break on a paragraph/sentence boundary near the end.
         if end < length:
             window = text[start:end]
             for sep in ("\n\n", "\n", ". "):
@@ -35,28 +62,37 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
 
 
 def ingest_document(
-    filename: str,
+    *,
+    stored_filename: str,
+    original_filename: str,
     data: bytes,
+    title: str | None,
     entity: str,
     area: str,
+    doc_type: str,
+    description: str | None,
+    content_hash_value: str,
     sharepoint_url: str | None = None,
     sharepoint_item_id: str | None = None,
-) -> tuple[str, int, int]:
-    """Extract, chunk, embed and store a document.
-
-    Returns (document_id, chunks_indexed, extracted_chars).
-    """
-    text = extract_text(filename, data)
+) -> tuple[str, int, int, str]:
+    """Extract, chunk, embed and store. Returns (document_id, chunks_indexed, extracted_chars, upload_date)."""
+    text = extract_text(original_filename, data)
     extracted_chars = len(text)
     chunks = chunk_text(text, settings.chunk_size, settings.chunk_overlap)
-    if not chunks:
-        doc_id = vectorstore.add_document(
-            filename, entity, area, [], [], sharepoint_url, sharepoint_item_id
-        )
-        return doc_id, 0, extracted_chars
-
-    vectors = embeddings.embed_texts(chunks)
-    doc_id = vectorstore.add_document(
-        filename, entity, area, chunks, vectors, sharepoint_url, sharepoint_item_id
+    vectors = embeddings.embed_texts(chunks) if chunks else []
+    doc_id, upload_date = vectorstore.add_document(
+        filename=stored_filename,
+        original_filename=original_filename,
+        title=title,
+        entity=entity,
+        area=area,
+        doc_type=doc_type,
+        description=description,
+        file_size=len(data),
+        content_hash=content_hash_value,
+        chunks=chunks,
+        embeddings=vectors,
+        sharepoint_url=sharepoint_url,
+        sharepoint_item_id=sharepoint_item_id,
     )
-    return doc_id, len(chunks), extracted_chars
+    return doc_id, len(chunks), extracted_chars, upload_date

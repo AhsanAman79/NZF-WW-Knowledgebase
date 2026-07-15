@@ -1,10 +1,4 @@
-"""Embedded vector store backed by SQLite + numpy cosine similarity.
-
-Suitable for the expected (management-level) document volume. Embeddings are
-stored as float32 blobs; search loads candidate vectors and ranks by cosine
-similarity in memory. Can be swapped for pgvector/Qdrant later without changing
-the public interface.
-"""
+"""Embedded vector store backed by SQLite + numpy cosine similarity."""
 from __future__ import annotations
 
 import sqlite3
@@ -33,8 +27,15 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS documents (
                 id TEXT PRIMARY KEY,
                 filename TEXT NOT NULL,
+                original_filename TEXT,
+                title TEXT,
                 entity TEXT NOT NULL,
                 area TEXT NOT NULL,
+                doc_type TEXT,
+                description TEXT,
+                upload_date TEXT,
+                file_size INTEGER,
+                content_hash TEXT,
                 sharepoint_url TEXT,
                 sharepoint_item_id TEXT,
                 created_at TEXT NOT NULL
@@ -49,28 +50,50 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_documents_entity ON documents(entity);
             CREATE INDEX IF NOT EXISTS idx_documents_area ON documents(area);
+            CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(content_hash);
             CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
             """
         )
 
 
+def find_by_hash(content_hash: str) -> dict | None:
+    """Return an existing document with the same content hash, if any."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id, filename, entity, area, sharepoint_url FROM documents "
+            "WHERE content_hash = ? LIMIT 1",
+            (content_hash,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def add_document(
+    *,
     filename: str,
+    original_filename: str,
+    title: str | None,
     entity: str,
     area: str,
+    doc_type: str,
+    description: str | None,
+    file_size: int,
+    content_hash: str,
     chunks: list[str],
     embeddings: list[list[float]],
     sharepoint_url: str | None = None,
     sharepoint_item_id: str | None = None,
-) -> str:
-    """Persist a document and its embedded chunks. Returns the document id."""
+) -> tuple[str, str]:
+    """Persist a document and its embedded chunks. Returns (document_id, upload_date)."""
     doc_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO documents (id, filename, entity, area, sharepoint_url, "
-            "sharepoint_item_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (doc_id, filename, entity, area, sharepoint_url, sharepoint_item_id, now),
+            "INSERT INTO documents (id, filename, original_filename, title, entity, area, "
+            "doc_type, description, upload_date, file_size, content_hash, sharepoint_url, "
+            "sharepoint_item_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (doc_id, filename, original_filename, title, entity, area, doc_type, description,
+             now, file_size, content_hash, sharepoint_url, sharepoint_item_id, now),
         )
         rows = []
         for i, (text, emb) in enumerate(zip(chunks, embeddings)):
@@ -81,7 +104,7 @@ def add_document(
             "VALUES (?, ?, ?, ?, ?)",
             rows,
         )
-    return doc_id
+    return doc_id, now
 
 
 def search(
@@ -89,11 +112,12 @@ def search(
     top_k: int,
     entity: str | None = None,
     area: str | None = None,
+    doc_type: str | None = None,
 ) -> list[dict]:
-    """Return the top_k most similar chunks, optionally filtered by entity/area."""
+    """Return the top_k most similar chunks, optionally filtered."""
     sql = (
-        "SELECT c.id AS chunk_id, c.text AS text, c.embedding AS embedding, "
-        "d.id AS document_id, d.filename, d.entity, d.area, d.sharepoint_url "
+        "SELECT c.text AS text, c.embedding AS embedding, d.id AS document_id, d.filename, "
+        "d.title, d.entity, d.area, d.doc_type, d.upload_date, d.sharepoint_url "
         "FROM chunks c JOIN documents d ON c.document_id = d.id"
     )
     conditions, params = [], []
@@ -103,19 +127,19 @@ def search(
     if area:
         conditions.append("d.area = ?")
         params.append(area)
+    if doc_type:
+        conditions.append("d.doc_type = ?")
+        params.append(doc_type)
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
 
     with _connect() as conn:
         rows = conn.execute(sql, params).fetchall()
-
     if not rows:
         return []
 
     matrix = np.stack([np.frombuffer(r["embedding"], dtype=np.float32) for r in rows])
     query = np.asarray(query_embedding, dtype=np.float32)
-
-    # Cosine similarity
     matrix_norm = matrix / (np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-8)
     query_norm = query / (np.linalg.norm(query) + 1e-8)
     scores = matrix_norm @ query_norm
@@ -128,8 +152,11 @@ def search(
             {
                 "document_id": r["document_id"],
                 "filename": r["filename"],
+                "title": r["title"],
                 "entity": r["entity"],
                 "area": r["area"],
+                "doc_type": r["doc_type"],
+                "upload_date": r["upload_date"],
                 "sharepoint_url": r["sharepoint_url"],
                 "snippet": r["text"],
                 "score": float(scores[int(idx)]),

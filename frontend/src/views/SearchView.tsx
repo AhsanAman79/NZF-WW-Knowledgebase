@@ -4,12 +4,14 @@ import { search, type SearchResponse } from "../api";
 interface Props {
   entities: string[];
   areas: string[];
+  docTypes: string[];
 }
 
-export default function SearchView({ entities, areas }: Props) {
+export default function SearchView({ entities, areas, docTypes }: Props) {
   const [query, setQuery] = useState("");
   const [entity, setEntity] = useState("");
   const [area, setArea] = useState("");
+  const [docType, setDocType] = useState("");
   const [busy, setBusy] = useState(false);
   const [data, setData] = useState<SearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,8 +22,7 @@ export default function SearchView({ entities, areas }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const res = await search(query.trim(), entity, area);
-      setData(res);
+      setData(await search(query.trim(), entity, area, docType));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -33,8 +34,8 @@ export default function SearchView({ entities, areas }: Props) {
     <section className="card">
       <h2>Search the knowledgebase</h2>
       <p className="hint">
-        Ask in natural language. Results are ranked by meaning, not just keywords,
-        across all NZF entities. Optionally narrow down by entity or area.
+        Ask in natural language. Results are ranked by meaning, not just keywords, across
+        all NZF entities. Optionally narrow down by entity, area or type.
       </p>
 
       <form onSubmit={onSubmit} className="form search-form">
@@ -55,6 +56,12 @@ export default function SearchView({ entities, areas }: Props) {
           <select value={area} onChange={(e) => setArea(e.target.value)}>
             <option value="">All areas</option>
             {areas.map((x) => (
+              <option key={x} value={x}>{x}</option>
+            ))}
+          </select>
+          <select value={docType} onChange={(e) => setDocType(e.target.value)}>
+            <option value="">All types</option>
+            {docTypes.map((x) => (
               <option key={x} value={x}>{x}</option>
             ))}
           </select>
@@ -84,19 +91,25 @@ export default function SearchView({ entities, areas }: Props) {
           {data.results.map((r, i) => (
             <article className="result" key={`${r.document_id}-${i}`}>
               <div className="result-head">
-                <span className="filename">{r.filename}</span>
+                <span className="filename">{r.title || r.filename}</span>
                 <span className="tags">
                   <span className="tag">{r.entity}</span>
                   <span className="tag">{r.area}</span>
+                  {r.doc_type && <span className="tag">{r.doc_type}</span>}
                   <span className="score">{(r.score * 100).toFixed(0)}%</span>
                 </span>
               </div>
               <p className="snippet">{r.snippet}</p>
-              {r.sharepoint_url && (
-                <a href={r.sharepoint_url} target="_blank" rel="noreferrer">
-                  Open in SharePoint
-                </a>
-              )}
+              <div className="result-foot">
+                {r.upload_date && (
+                  <span className="date">{r.upload_date.slice(0, 10)}</span>
+                )}
+                {r.sharepoint_url && (
+                  <a href={r.sharepoint_url} target="_blank" rel="noreferrer">
+                    Open in SharePoint
+                  </a>
+                )}
+              </div>
             </article>
           ))}
         </div>
