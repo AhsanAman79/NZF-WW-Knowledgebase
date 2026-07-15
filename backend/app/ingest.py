@@ -78,7 +78,13 @@ def ingest_document(
     """Extract, chunk, embed and store. Returns (document_id, chunks_indexed, extracted_chars, upload_date)."""
     text = extract_text(original_filename, data)
     extracted_chars = len(text)
-    chunks = chunk_text(text, settings.chunk_size, settings.chunk_overlap)
+    # Fallback: if no text could be extracted (e.g. legacy .doc, images-only PDF,
+    # iWork files), index the document by its metadata so it stays findable.
+    embed_source = text
+    if not text.strip():
+        parts = [p for p in (title, doc_type, Path(original_filename).stem, description) if p]
+        embed_source = " — ".join(parts)
+    chunks = chunk_text(embed_source, settings.chunk_size, settings.chunk_overlap)
     vectors = embeddings.embed_texts(chunks) if chunks else []
     doc_id, upload_date = vectorstore.add_document(
         filename=stored_filename,

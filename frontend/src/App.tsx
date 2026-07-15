@@ -30,7 +30,6 @@ export default function App() {
           <img src={logo} alt="Zakat Deutschland" className="logo" />
           <div className="brand-text">
             <h1>Worldwide Knowledgebase</h1>
-            <p className="subtitle">Central document search across all NZF entities</p>
           </div>
         </div>
         <nav className="nav">

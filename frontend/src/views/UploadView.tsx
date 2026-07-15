@@ -53,8 +53,7 @@ export default function UploadView({ entities, areas, docTypes }: Props) {
       <h2>Upload a document</h2>
       <p className="hint">
         Only <strong>Entity</strong> and <strong>Area</strong> are required. The file is
-        stored on the central SharePoint and indexed for search. Supported: PDF, DOCX,
-        XLSX, PPTX, HTML, VTT, TXT.
+        stored on the central SharePoint and indexed for search.
       </p>
 
       <form onSubmit={onSubmit} className="form">
@@ -94,7 +93,7 @@ export default function UploadView({ entities, areas, docTypes }: Props) {
 
         <div className="grid-2">
           <label>
-            Entity <span className="req">*</span>
+            <span className="label-text">Entity <span className="req">*</span></span>
             <select value={entity} onChange={(e) => setEntity(e.target.value)}>
               <option value="">Select entity…</option>
               {entities.map((x) => (
@@ -103,7 +102,7 @@ export default function UploadView({ entities, areas, docTypes }: Props) {
             </select>
           </label>
           <label>
-            Area <span className="req">*</span>
+            <span className="label-text">Area <span className="req">*</span></span>
             <select value={area} onChange={(e) => setArea(e.target.value)}>
               <option value="">Select area…</option>
               {areas.map((x) => (

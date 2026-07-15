@@ -16,8 +16,10 @@ ENTITIES: list[str] = [
 # --- Areas / departments ---
 # PLACEHOLDER: replace with the real areas once provided.
 AREAS: list[str] = [
+    "CEO",
     "Finance",
     "Fundraising",
+    "Distribution",
     "Governance",
     "Operations",
     "Marketing & Communications",
