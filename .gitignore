@@ -2,6 +2,7 @@
 .env
 .env.local
 *.local
+caddy.env
 
 # --- Python ---
 backend/.venv/
