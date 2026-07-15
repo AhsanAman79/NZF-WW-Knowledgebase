@@ -7,8 +7,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env from the backend directory (parent of this file's package).
+# Load .env from the project root (where .env.example lives), falling back to
+# the backend directory.
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(_BACKEND_DIR.parent / ".env")
 load_dotenv(_BACKEND_DIR / ".env")
 
 
@@ -35,7 +37,7 @@ class Settings:
 
     # Ollama
     ollama_base_url: str = field(default_factory=lambda: _get("OLLAMA_BASE_URL", "http://localhost:11434"))
-    embedding_model: str = field(default_factory=lambda: _get("EMBEDDING_MODEL", "bge-m3"))
+    embedding_model: str = field(default_factory=lambda: _get("EMBEDDING_MODEL", "nomic-embed-text"))
     chat_model: str = field(default_factory=lambda: _get("CHAT_MODEL"))
 
     # Storage

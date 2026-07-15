@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from . import embeddings, ingest, sharepoint, vectorstore
 from .config import settings
@@ -146,3 +148,13 @@ def search(req: SearchRequest) -> SearchResponse:
         answer=answer,
         results=[SearchResultItem(**h) for h in hits],
     )
+
+
+
+# --- Serve the built frontend (single-service production mode) ---
+# In development the frontend runs on the Vite dev server (port 3000) and proxies
+# to this API. In production, `npm run build` produces frontend/dist which is
+# served here so everything runs from one process/port.
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+if _FRONTEND_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
