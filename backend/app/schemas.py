@@ -17,18 +17,18 @@ ENTITIES: list[str] = [
 # PLACEHOLDER: replace with the real areas once provided.
 AREAS: list[str] = [
     "CEO",
+    "Community",
+    "Distribution",
     "Finance",
     "Fundraising",
-    "Distribution",
     "Governance",
-    "Operations",
-    "Marketing & Communications",
-    "Community",
     "HR & People",
-    "Legal & Compliance",
     "IT / AI / Tech",
-    "Programmes & Impact",
+    "Legal & Compliance",
+    "Marketing & Communications",
+    "Operations",
     "Other",
+    "Programmes & Impact",
 ]
 
 # --- Document types -> filename prefix ---

@@ -91,6 +91,11 @@ def callback(request: Request):
         if resp.status_code != 200:
             return _error_page("Sign-in failed (token exchange).", 502)
         token = resp.json()
+        print(
+            f"[auth] token keys={sorted(token.keys())} "
+            f"has_access={bool(token.get('access_token'))} scope={token.get('scope')!r}",
+            flush=True,
+        )
         id_token = token.get("id_token")
         if not id_token:
             return _error_page("Sign-in failed (no token).", 502)
