@@ -129,6 +129,13 @@ button[type="submit"]:disabled { opacity: .45; cursor: not-allowed; }
 
 .footer { padding: 20px 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; text-align: center; }
 
+/* Multi-file upload */
+.row-links { display: flex; gap: 16px; align-items: center; }
+.linkbtn { background: none; border: none; color: var(--zd-red); font-weight: 600; font-size: 13px; cursor: pointer; padding: 0; font-family: inherit; }
+.linkbtn:hover { text-decoration: underline; }
+.file-list { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; max-height: 200px; overflow: auto; }
+.file-list li { margin: 2px 0; }
+
 @media (max-width: 560px) {
   .grid-2 { grid-template-columns: 1fr; }
   .header { justify-content: center; text-align: center; }
