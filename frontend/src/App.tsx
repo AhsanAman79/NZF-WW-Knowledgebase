@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { getAreas, getDocTypes, getEntities } from "./api";
 import UploadView from "./views/UploadView";
 import SearchView from "./views/SearchView";
+import ImportView from "./views/ImportView";
 import logo from "./assets/zd-logo-red.png";
 
-type View = "search" | "upload";
+type View = "search" | "upload" | "import";
 
 export default function App() {
   const [view, setView] = useState<View>("search");
@@ -45,6 +46,12 @@ export default function App() {
           >
             Upload
           </button>
+          <button
+            className={view === "import" ? "active" : ""}
+            onClick={() => setView("import")}
+          >
+            Import
+          </button>
         </nav>
       </header>
 
@@ -54,11 +61,9 @@ export default function App() {
             Could not reach the backend: {loadError}
           </div>
         )}
-        {view === "search" ? (
-          <SearchView entities={entities} areas={areas} docTypes={docTypes} />
-        ) : (
-          <UploadView entities={entities} areas={areas} docTypes={docTypes} />
-        )}
+        {view === "search" && <SearchView entities={entities} areas={areas} docTypes={docTypes} />}
+        {view === "upload" && <UploadView entities={entities} areas={areas} docTypes={docTypes} />}
+        {view === "import" && <ImportView entities={entities} areas={areas} docTypes={docTypes} />}
       </main>
 
       <footer className="footer">

@@ -1,13 +1,13 @@
 """Microsoft Entra (multi-tenant) OIDC login, restricted to allowed tenants.
 
-Flow: /oauth2/login -> Microsoft -> /oauth2/callback. The id_token signature is
-verified against Microsoft's JWKS, the audience must be our client id, and the
-tenant id (tid) must be in the allowed list. On success a signed session cookie
-is set. Enforcement is done by middleware in main.py.
+Also acquires a delegated Microsoft Graph access token (Files.Read.All,
+Sites.Read.All) so the signed-in user can import SharePoint content with their
+own permissions. The Graph token is kept server-side (not in the cookie).
 """
 from __future__ import annotations
 
 import secrets
+import time
 import urllib.parse
 
 import httpx
@@ -23,10 +23,13 @@ _BASE = "https://login.microsoftonline.com/organizations/oauth2/v2.0"
 _AUTHORIZE = f"{_BASE}/authorize"
 _TOKEN = f"{_BASE}/token"
 _JWKS = "https://login.microsoftonline.com/common/discovery/v2.0/keys"
-_SCOPE = "openid profile email"
+_SCOPE = "openid profile email offline_access Files.Read.All Sites.Read.All"
 
-# JWKS client caches signing keys across requests.
 _jwk_client = jwt.PyJWKClient(_JWKS) if settings.auth_enabled else None
+
+# Server-side store for delegated Graph tokens, keyed by a random session id
+# that lives in the (signed) session cookie. Single-process app -> a dict is fine.
+_graph_tokens: dict[str, dict] = {}
 
 
 def _error_page(message: str, status: int) -> HTMLResponse:
@@ -36,7 +39,7 @@ def _error_page(message: str, status: int) -> HTMLResponse:
         "<title>Access denied</title>"
         "<style>body{font-family:system-ui,sans-serif;background:#f5f3f2;color:#1c1c1c;"
         "display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}"
-        ".box{background:#fff;border:1px solid #e6e2e0;border-radius:14px;padding:32px;max-width:440px;text-align:center}"
+        ".box{background:#fff;border:1px solid #e6e2e0;border-radius:14px;padding:32px;max-width:460px;text-align:center}"
         "h1{color:#d6282c;font-size:20px}a{color:#d6282c;font-weight:600}</style></head>"
         f"<body><div class='box'><h1>Access denied</h1><p>{message}</p>"
         "<p><a href='/oauth2/login'>Try again</a></p></div></body></html>"
@@ -87,7 +90,8 @@ def callback(request: Request):
             resp = client.post(_TOKEN, data=data)
         if resp.status_code != 200:
             return _error_page("Sign-in failed (token exchange).", 502)
-        id_token = resp.json().get("id_token")
+        token = resp.json()
+        id_token = token.get("id_token")
         if not id_token:
             return _error_page("Sign-in failed (no token).", 502)
         signing_key = _jwk_client.get_signing_key_from_jwt(id_token)
@@ -110,6 +114,12 @@ def callback(request: Request):
 
     request.session.pop("oauth_state", None)
     request.session.pop("oauth_nonce", None)
+    sid = secrets.token_urlsafe(24)
+    _graph_tokens[sid] = {
+        "access_token": token.get("access_token"),
+        "expires_at": time.time() + int(token.get("expires_in", 3600)) - 60,
+    }
+    request.session["sid"] = sid
     request.session["user"] = {
         "name": claims.get("name"),
         "email": claims.get("preferred_username") or claims.get("email"),
@@ -120,10 +130,28 @@ def callback(request: Request):
 
 @router.get("/oauth2/logout")
 def logout(request: Request):
+    sid = request.session.get("sid")
+    if sid:
+        _graph_tokens.pop(sid, None)
     request.session.clear()
     return RedirectResponse("/oauth2/login")
 
 
 @router.get("/api/me")
 def me(request: Request):
-    return request.session.get("user") or {}
+    user = request.session.get("user") or {}
+    return {**user, "can_import": get_graph_token(request) is not None}
+
+
+def get_graph_token(request: Request) -> str | None:
+    """Return the signed-in user's delegated Graph access token, if still valid."""
+    sid = request.session.get("sid")
+    if not sid:
+        return None
+    entry = _graph_tokens.get(sid)
+    if not entry or not entry.get("access_token"):
+        return None
+    if entry["expires_at"] < time.time():
+        _graph_tokens.pop(sid, None)
+        return None
+    return entry["access_token"]

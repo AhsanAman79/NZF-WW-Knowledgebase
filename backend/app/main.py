@@ -4,19 +4,20 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import auth, embeddings, ingest, sharepoint, vectorstore
+from . import auth, embeddings, importer, ingest, sharepoint, vectorstore
 from .config import settings
 from .extraction import is_supported
 from .schemas import (
     AREAS,
     DOC_TYPES,
     ENTITIES,
+    ImportRequest,
     SearchRequest,
     SearchResponse,
     SearchResultItem,
@@ -232,6 +233,31 @@ def search(req: SearchRequest) -> SearchResponse:
         answer=answer,
         results=[SearchResultItem(**h) for h in hits],
     )
+
+
+@app.post("/api/import")
+def import_link(req: ImportRequest, request: Request) -> dict:
+    if not settings.auth_enabled:
+        raise HTTPException(400, "Import requires SSO sign-in.")
+    token = auth.get_graph_token(request)
+    if not token:
+        raise HTTPException(401, "Your Microsoft access expired. Please sign in again.")
+    url = req.url.strip()
+    if not url:
+        raise HTTPException(400, "Empty link.")
+    if req.entity and req.entity not in ENTITIES:
+        raise HTTPException(400, f"Unknown entity '{req.entity}'.")
+    if req.area and req.area not in AREAS:
+        raise HTTPException(400, f"Unknown area '{req.area}'.")
+    entity = (req.entity or "").strip() or "Unspecified"
+    area = (req.area or "").strip() or "Unspecified"
+    doc_type = req.doc_type if (req.doc_type and is_valid_doc_type(req.doc_type)) else "Other"
+    try:
+        return importer.import_from_link(url, token, entity, area, doc_type)
+    except importer.ImportError_ as exc:
+        raise HTTPException(502, str(exc))
+    except embeddings.OllamaError as exc:
+        raise HTTPException(502, f"Embedding failed (is Ollama running?): {exc}")
 
 
 # --- Serve the built frontend (single-service production mode) ---

@@ -95,3 +95,31 @@ export async function search(
   if (!res.ok) return asError(res);
   return res.json();
 }
+
+export interface ImportResult {
+  total: number;
+  imported: number;
+  duplicates: number;
+  skipped: number;
+  errors: number;
+}
+
+export async function importLink(
+  url: string,
+  entity?: string,
+  area?: string,
+  docType?: string
+): Promise<ImportResult> {
+  const res = await fetch("/api/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url,
+      entity: entity || null,
+      area: area || null,
+      doc_type: docType || null,
+    }),
+  });
+  if (!res.ok) return asError(res);
+  return res.json();
+}

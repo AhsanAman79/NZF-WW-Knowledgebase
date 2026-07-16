@@ -99,3 +99,10 @@ class SearchResponse(BaseModel):
     query: str
     answer: str | None = None
     results: list[SearchResultItem]
+
+
+class ImportRequest(BaseModel):
+    url: str
+    entity: str | None = None
+    area: str | None = None
+    doc_type: str | None = None
