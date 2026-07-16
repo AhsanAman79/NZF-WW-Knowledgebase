@@ -55,6 +55,15 @@ class Settings:
         ]
     )
 
+    # --- Entra SSO login (multi-tenant, restricted to allowed tenants) ---
+    login_client_id: str = field(default_factory=lambda: _get("AZURE_LOGIN_CLIENT_ID"))
+    login_client_secret: str = field(default_factory=lambda: _get("AZURE_LOGIN_CLIENT_SECRET"))
+    allowed_tenants: list[str] = field(
+        default_factory=lambda: [t.strip() for t in _get("ALLOWED_TENANTS").split(",") if t.strip()]
+    )
+    session_secret: str = field(default_factory=lambda: _get("SESSION_SECRET"))
+    base_url: str = field(default_factory=lambda: _get("BASE_URL").rstrip("/"))
+
     @property
     def sharepoint_configured(self) -> bool:
         return bool(self.tenant_id and self.client_id and self.client_secret and self.sharepoint_hostname)
@@ -62,6 +71,20 @@ class Settings:
     @property
     def chat_enabled(self) -> bool:
         return bool(self.chat_model)
+
+    @property
+    def auth_enabled(self) -> bool:
+        return bool(
+            self.login_client_id
+            and self.login_client_secret
+            and self.session_secret
+            and self.allowed_tenants
+            and self.base_url
+        )
+
+    @property
+    def redirect_uri(self) -> str:
+        return f"{self.base_url}/oauth2/callback"
 
 
 settings = Settings()

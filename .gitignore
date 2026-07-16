@@ -3,6 +3,7 @@
 .env.local
 *.local
 caddy.env
+login.env
 
 # --- Python ---
 backend/.venv/

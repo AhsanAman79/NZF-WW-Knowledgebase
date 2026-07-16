@@ -6,9 +6,11 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
-from . import embeddings, ingest, sharepoint, vectorstore
+from . import auth, embeddings, ingest, sharepoint, vectorstore
 from .config import settings
 from .extraction import is_supported
 from .schemas import (
@@ -39,6 +41,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def require_login(request, call_next):
+    """Block access unless a valid session exists (when SSO is enabled)."""
+    if not settings.auth_enabled:
+        return await call_next(request)
+    path = request.url.path
+    if path.startswith("/oauth2/") or path == "/health":
+        return await call_next(request)
+    if request.session.get("user"):
+        return await call_next(request)
+    if path.startswith("/api/"):
+        return JSONResponse({"detail": "authentication required"}, status_code=401)
+    return RedirectResponse("/oauth2/login")
+
+
+# Added last so it is the outermost middleware -> request.session is available
+# to require_login and the auth routes.
+if settings.auth_enabled:
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret,
+        https_only=True,
+        same_site="lax",
+        max_age=60 * 60 * 8,
+    )
+
+app.include_router(auth.router)
 
 
 @app.get("/health")

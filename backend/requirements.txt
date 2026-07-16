@@ -12,6 +12,9 @@ msal
 # Config
 python-dotenv
 
+# Sessions (SessionMiddleware)
+itsdangerous
+
 # Vector math
 numpy
 
