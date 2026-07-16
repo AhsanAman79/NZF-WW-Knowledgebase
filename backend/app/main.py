@@ -78,18 +78,20 @@ def sharepoint_check() -> dict:
 @app.post("/api/upload", response_model=UploadResponse)
 def upload(
     file: UploadFile = File(...),
-    entity: str = Form(...),
-    area: str = Form(...),
+    entity: str = Form(""),
+    area: str = Form(""),
     doc_type: str = Form("Other"),
     title: str = Form(""),
     description: str = Form(""),
 ) -> UploadResponse:
-    if entity not in ENTITIES:
+    if entity and entity not in ENTITIES:
         raise HTTPException(400, f"Unknown entity '{entity}'.")
-    if area not in AREAS:
+    if area and area not in AREAS:
         raise HTTPException(400, f"Unknown area '{area}'.")
     if doc_type and not is_valid_doc_type(doc_type):
         raise HTTPException(400, f"Unknown document type '{doc_type}'.")
+    entity = entity.strip() or "Unspecified"
+    area = area.strip() or "Unspecified"
 
     original_filename = file.filename or "upload"
     if not is_supported(original_filename):

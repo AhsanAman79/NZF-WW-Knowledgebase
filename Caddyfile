@@ -1,7 +1,4 @@
 nzf-knowledgebase.zakat-deutschland.de {
 	encode gzip
-	basic_auth {
-		{$NZF_AUTH_USER} {$NZF_AUTH_HASH}
-	}
 	reverse_proxy app:8000
 }

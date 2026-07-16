@@ -20,7 +20,7 @@ export default function UploadView({ entities, areas, docTypes }: Props) {
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const canSubmit = !!file && !!entity && !!area && !busy;
+  const canSubmit = !!file && !busy;
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -30,7 +30,7 @@ export default function UploadView({ entities, areas, docTypes }: Props) {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file || !entity || !area) return;
+    if (!file) return;
     setBusy(true);
     setError(null);
     setResult(null);
@@ -52,8 +52,8 @@ export default function UploadView({ entities, areas, docTypes }: Props) {
     <section className="card">
       <h2>Upload a document</h2>
       <p className="hint">
-        Only <strong>Entity</strong> and <strong>Area</strong> are required. The file is
-        stored on the central SharePoint and indexed for search.
+        The file is stored on the central SharePoint and indexed for search. All fields
+        are optional.
       </p>
 
       <form onSubmit={onSubmit} className="form">
@@ -93,7 +93,7 @@ export default function UploadView({ entities, areas, docTypes }: Props) {
 
         <div className="grid-2">
           <label>
-            <span className="label-text">Entity <span className="req">*</span></span>
+            <span className="label-text">Entity</span>
             <select value={entity} onChange={(e) => setEntity(e.target.value)}>
               <option value="">Select entity…</option>
               {entities.map((x) => (
@@ -102,7 +102,7 @@ export default function UploadView({ entities, areas, docTypes }: Props) {
             </select>
           </label>
           <label>
-            <span className="label-text">Area <span className="req">*</span></span>
+            <span className="label-text">Area</span>
             <select value={area} onChange={(e) => setArea(e.target.value)}>
               <option value="">Select area…</option>
               {areas.map((x) => (
