@@ -23,9 +23,10 @@ AREAS: list[str] = [
     "Governance",
     "Operations",
     "Marketing & Communications",
+    "Community",
     "HR & People",
     "Legal & Compliance",
-    "IT",
+    "IT / AI / Tech",
     "Programmes & Impact",
     "Other",
 ]
